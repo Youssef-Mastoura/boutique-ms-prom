@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.openshift.io/runtime: java
+  name: adservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: adservice
+  template:
+    metadata:
+      labels:
+        app: adservice
+    spec:
+      containers:
+      - env:
+        - name: PORT
+          value: "9555"
+        image: us-central1-docker.pkg.dev/google-samples/microservices-demo/adservice:v0.10.2
+        name: server
+        ports:
+        - containerPort: 9555
+        livenessProbe:
+          grpc:
+            port: 9555
+          initialDelaySeconds: 20
+        readinessProbe:
+          grpc:
+            port: 9555
+          initialDelaySeconds: 20
+        resources:
+          limits:
+            cpu: 300m
+            memory: 300Mi
+          requests:
+            cpu: 200m
+            memory: 180Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [all]
+          readOnlyRootFilesystem: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: adservice
+spec:
+  ports:
+  - name: grpc
+    port: 9555
+    targetPort: 9555
+  selector:
+    app: adservice

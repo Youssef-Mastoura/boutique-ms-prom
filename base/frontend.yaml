@@ -1,0 +1,116 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    # OpenShift Topology view connections
+    app.openshift.io/connects-to: '[{"apiVersion":"apps/v1","kind":"Deployment","name":"cartservice"},{"apiVersion":"apps/v1","kind":"Deployment","name":"adservice"},{"apiVersion":"apps/v1","kind":"Deployment","name":"recommendationservice"},{"apiVersion":"apps/v1","kind":"Deployment","name":"productcatalogservice"},{"apiVersion":"apps/v1","kind":"Deployment","name":"shippingservice"},{"apiVersion":"apps/v1","kind":"Deployment","name":"currencyservice"},{"apiVersion":"apps/v1","kind":"Deployment","name":"checkoutservice"}]'
+  labels:
+    app.openshift.io/runtime: golang
+    app: frontend
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      annotations:
+        # Prometheus scrape config for OpenShift User Workload Monitoring
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8081"
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: server
+        # UPDATED: Using your metrics-enabled image
+        image: youzarsif99/frontend:v1-metrics
+        imagePullPolicy: Always
+        env:
+        - name: PORT
+          value: "8080"
+        - name: PRODUCT_CATALOG_SERVICE_ADDR
+          value: productcatalogservice:3550
+        - name: CURRENCY_SERVICE_ADDR
+          value: currencyservice:7000
+        - name: CART_SERVICE_ADDR
+          value: cartservice:7070
+        - name: RECOMMENDATION_SERVICE_ADDR
+          value: recommendationservice:8080
+        - name: SHIPPING_SERVICE_ADDR
+          value: shippingservice:50051
+        - name: CHECKOUT_SERVICE_ADDR
+          value: checkoutservice:5050
+        - name: AD_SERVICE_ADDR
+          value: adservice:9555
+        # ADDED: Ensure metrics are not disabled in code
+        - name: DISABLE_METRICS
+          value: "0"
+        ports:
+        - name: http
+          containerPort: 8080
+        # ADDED: Port for the metrics endpoint we just verified
+        - name: metrics
+          containerPort: 8081
+        livenessProbe:
+          httpGet:
+            path: /_healthz
+            port: 8080
+          initialDelaySeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /_healthz
+            port: 8080
+          initialDelaySeconds: 10
+        resources:
+          limits:
+            cpu: 200m
+            memory: 128Mi
+          requests:
+            cpu: 100m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - all
+          readOnlyRootFilesystem: true
+          # OpenShift often requires specific UIDs; if it fails, 
+          # you might need to remove the runAsUser or use a ServiceAccount
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  labels:
+    app: frontend
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+  # ADDED: Service port for OpenShift Prometheus to discover
+  - name: metrics
+    port: 8081
+    targetPort: 8081
+  selector:
+    app: frontend
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: frontend
+  labels:
+    app: frontend
+spec:
+  # Route points to the standard web traffic port
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+  to:
+    kind: Service
+    name: frontend
+    weight: 100
+  wildcardPolicy: None
