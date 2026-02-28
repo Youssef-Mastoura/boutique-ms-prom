@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    # OpenShift Topology view connections
     app.openshift.io/connects-to: '[{"apiVersion":"apps/v1","kind":"Deployment","name":"cartservice"},{"apiVersion":"apps/v1","kind":"Deployment","name":"adservice"},{"apiVersion":"apps/v1","kind":"Deployment","name":"recommendationservice"},{"apiVersion":"apps/v1","kind":"Deployment","name":"productcatalogservice"},{"apiVersion":"apps/v1","kind":"Deployment","name":"shippingservice"},{"apiVersion":"apps/v1","kind":"Deployment","name":"currencyservice"},{"apiVersion":"apps/v1","kind":"Deployment","name":"checkoutservice"}]'
   labels:
     app.openshift.io/runtime: golang
@@ -16,7 +15,6 @@ spec:
   template:
     metadata:
       annotations:
-        # Prometheus scrape config for OpenShift User Workload Monitoring
         prometheus.io/scrape: "true"
         prometheus.io/port: "8081"
       labels:
@@ -24,7 +22,6 @@ spec:
     spec:
       containers:
       - name: server
-        # UPDATED: Using your metrics-enabled image
         image: youzarsif99/frontend:v1-metrics
         imagePullPolicy: Always
         env:
@@ -44,13 +41,14 @@ spec:
           value: checkoutservice:5050
         - name: AD_SERVICE_ADDR
           value: adservice:9555
-        # ADDED: Ensure metrics are not disabled in code
+        # FIXED: Added the missing variable that caused the panic
+        - name: SHOPPING_ASSISTANT_SERVICE_ADDR
+          value: "shoppingassistantservice:80"
         - name: DISABLE_METRICS
           value: "0"
         ports:
         - name: http
           containerPort: 8080
-        # ADDED: Port for the metrics endpoint we just verified
         - name: metrics
           containerPort: 8081
         livenessProbe:
@@ -76,8 +74,6 @@ spec:
             drop:
             - all
           readOnlyRootFilesystem: true
-          # OpenShift often requires specific UIDs; if it fails, 
-          # you might need to remove the runAsUser or use a ServiceAccount
 ---
 apiVersion: v1
 kind: Service
@@ -90,7 +86,6 @@ spec:
   - name: http
     port: 80
     targetPort: 8080
-  # ADDED: Service port for OpenShift Prometheus to discover
   - name: metrics
     port: 8081
     targetPort: 8081
@@ -104,7 +99,6 @@ metadata:
   labels:
     app: frontend
 spec:
-  # Route points to the standard web traffic port
   port:
     targetPort: http
   tls:
@@ -112,5 +106,3 @@ spec:
   to:
     kind: Service
     name: frontend
-    weight: 100
-  wildcardPolicy: None
