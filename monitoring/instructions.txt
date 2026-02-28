@@ -1,0 +1,11 @@
+first apply the configmap :
+oc apply -f cluster-monitoring-config.yaml 
+
+   verify through :
+   oc get pods -n openshift-user-workload-monitoring
+
+then you have to label the namespace:
+oc label namespace ms-demo openshift.io/user-monitoring="true" --overwrite
+
+finally apply the servicemonitor:
+oc apply -f boutique-servicemonitor.yaml
