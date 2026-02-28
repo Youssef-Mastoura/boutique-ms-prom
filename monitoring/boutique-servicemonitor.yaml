@@ -1,17 +1,15 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: boutique-monitor
+  name: microservices-monitor
   namespace: ms-demo
   labels:
-    team: monitoring
+    openshift.io/user-monitoring: "true"
 spec:
   selector:
-    matchLabels:
-      # This matches the "app" label on all boutique services
-      # like frontend, productcatalog, etc.
-      app: boutique 
+    matchExpressions:
+      - {key: app, operator: In, values: [frontend, emailservice, paymentservice]}
   endpoints:
-  - port: http
+  - port: metrics
     path: /metrics
     interval: 30s
