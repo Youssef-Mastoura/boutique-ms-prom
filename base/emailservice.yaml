@@ -13,6 +13,7 @@ spec:
     metadata:
       labels:
         app: emailservice
+        app.kubernetes.io/name: emailservice
     spec:
       containers:
       - env:
